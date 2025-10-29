@@ -1,7 +1,7 @@
 # Copyright (c) DP Technology.
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from IPython import embed as debug_embedded
+# from IPython import embed as debug_embedded
 import logging
 import os
 from collections.abc import Iterable
@@ -24,7 +24,7 @@ from unimol.data import (AffinityDataset, CroppingPocketDataset,
                          NormalizeDataset, NormalizeDockingPoseDataset,
                          PrependAndAppend2DDataset, RemoveHydrogenDataset,
                          RemoveHydrogenPocketDataset, RightPadDatasetCoord,
-                         RightPadDatasetCross2D, TTADockingPoseDataset, AffinityTestDataset, AffinityValidDataset, AffinityMolDataset, AffinityPocketDataset, ResamplingDataset)
+                         RightPadDatasetCross2D, TTADockingPoseDataset, AffinityTestDataset, AffinityValidDataset, AffinityMolDataset, AffinityPocketDataset, ResamplingDataset, LazySDFDataset)
 #from skchem.metrics import bedroc_score
 from rdkit.ML.Scoring.Scoring import CalcBEDROC, CalcAUC, CalcEnrichment
 from sklearn.metrics import roc_curve
@@ -337,8 +337,11 @@ class DrugCLIP(UnicoreTask):
     
 
     def load_mols_dataset(self, data_path,atoms,coords, **kwargs):
- 
-        dataset = LMDBDataset(data_path)
+        # data_path = '/vepfs-mlp2/mlp-public/shikunfeng/Project/DrugCLIP/data/inami/Enamine_screening_collection_202508.sdf'
+        if data_path.endswith(".sdf"):
+            dataset = LazySDFDataset(data_path)
+        else:
+            dataset = LMDBDataset(data_path)
         label_dataset = KeyDataset(dataset, "label")
         dataset = AffinityMolDataset(
             dataset,
@@ -897,6 +900,8 @@ class DrugCLIP(UnicoreTask):
         
         # cache path is embdir/data_path.pkl
 
+        os.makedirs(emb_dir, exist_ok=True)
+        
         cache_path = os.path.join(emb_dir, data_path.split("/")[-1] + ".pkl")
 
         if os.path.exists(cache_path):
@@ -942,9 +947,15 @@ class DrugCLIP(UnicoreTask):
         return mol_reps, mol_names
     
     def retrieve_mols(self, model, mol_path, pocket_path, emb_dir, k, **kwargs):
- 
-        os.makedirs(emb_dir, exist_ok=True)        
-        mol_reps, mol_names = self.encode_mols_once(model, mol_path, emb_dir,  "atoms", "coordinates")
+        
+        if os.path.exists(emb_dir):
+            # load the mol_reps and mol_names using pickle
+            # cache_path = os.path.join(emb_dir, mol_path.split("/")[-1] + ".pkl")
+            with open(emb_dir, "rb") as f:
+                mol_reps, mol_names = pickle.load(f)
+        else:
+            os.makedirs(emb_dir, exist_ok=True)        
+            mol_reps, mol_names = self.encode_mols_once(model, mol_path, emb_dir,  "atoms", "coordinates")
         
         pocket_dataset = self.load_pockets_dataset(pocket_path)
         pocket_data = torch.utils.data.DataLoader(pocket_dataset, batch_size=16, collate_fn=pocket_dataset.collater)

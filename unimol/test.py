@@ -16,6 +16,8 @@ import numpy as np
 from tqdm import tqdm
 import unicore
 
+# from unimol.tasks.molemb_dump import MolEmbDumper
+
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -58,6 +60,20 @@ def main(args):
 
 
     model.eval()
+    
+    if args.test_task == "extract_feats":
+        # dumper = MolEmbDumper(model, device="cuda" if use_cuda else "cpu")
+        # dumper.dump(args.mol_data_path, args.save_dir, bsz=args.batch_size)
+        task.encode_mols_once(model, args.mol_data_path, args.save_dir,  "atoms", "coordinates")
+    
+    if args.test_task == "retrival":
+        mol_names, topk = task.retrieve_mols(model, args.mol_data_path, args.pock_path, args.molemb_path, k=1000)
+
+        # write results to file
+        with open(os.path.join(args.save_dir, "retrival_results.txt"), "w") as f:
+            for mol_name, score in zip(mol_names, topk):
+                f.write(f"{mol_name}\t" + f"{score}" + "\n")
+        
     if args.test_task=="DUDE":
         task.test_dude(model)
 
@@ -70,7 +86,11 @@ def cli_main():
     
 
     parser = options.get_validation_parser()
-    parser.add_argument("--test-task", type=str, default="DUDE", help="test task", choices=["DUDE", "PCBA"])
+    parser.add_argument("--test-task", type=str, default="DUDE", help="test task", choices=["DUDE", "PCBA", "extract_feats", "retrival"])
+    parser.add_argument("--mol_data_path", type=str, default="/vepfs-mlp2/mlp-public/shikunfeng/Project/DrugCLIP/data/inami/Enamine_202508_3d.lmdb", help="")
+    parser.add_argument("--save_dir", type=str, default="/vepfs-mlp2/mlp-public/shikunfeng/Project/DrugCLIP/data/inami/mol_feats", help="test task")
+    parser.add_argument("--molemb_path", type=str, default="/vepfs-mlp2/mlp-public/shikunfeng/Project/DrugCLIP/data/inami/mol_feats/Enamine_202508_3d.lmdb.pkl", help="retrival task for mol embeddings")
+    parser.add_argument("--pock_path", type=str, default="/vepfs-mlp2/mlp-public/shikunfeng/Project/DrugCLIP/data/inami/pocket_data.lmdb", help="retrival task for mol embeddings")
     options.add_model_args(parser)
     args = options.parse_args_and_arch(parser)
 

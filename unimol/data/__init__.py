@@ -37,6 +37,9 @@ from .conformer_sample_dataset import (
     ConformerSampleConfGV2Dataset,
     ConformerSampleDockingPoseDataset,
 )
+
+from .sdf_dataset import LazySDFDataset
+
 from .mask_points_dataset import MaskPointsDataset, MaskPointsPocketDataset
 from .coord_pad_dataset import RightPadDatasetCoord, RightPadDatasetCross2D
 from .from_str_dataset import FromStrLabelDataset
